@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#f4f7fb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Kumar's Health">
+<title>Kumar's Personal Health Tracker</title>
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Kumar's Health Tracker&quot;,&quot;short_name&quot;:&quot;Kumar&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#f4f7fb&quot;,&quot;theme_color&quot;:&quot;#1a5fa8&quot;}">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --green: #1a5fa8;
+    --green-light: #4a9fd4;
+    --green-pale: #dbeeff;
+    --amber: #e07a00;
+    --amber-pale: #fff3cd;
+    --red: #c0392b;
+    --red-pale: #fdecea;
+    --bg: #f4f7fb;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b6b6b;
+    --border: #d6e4f0;
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+    padding-bottom: 90px;
+  }
+  .header {
+    background: var(--green);
+    color: white;
+    padding: 24px 20px 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+  }
+  .header h1 {
+    font-family: 'Lora', serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .header .date {
+    font-size: 13px;
+    opacity: 0.8;
+    margin-top: 2px;
+  }
+  .streak-badge {
+    background: rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .nav {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    max-width: 480px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    display: flex;
+    z-index: 100;
+  }
+  .nav-btn {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 10px 4px 8px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 10px;
+    transition: color 0.2s;
+  }
+  .nav-btn.active { color: var(--green); }
+  .nav-btn svg { width: 20px; height: 20px; }
+  .page { display: none; padding: 16px; }
+  .page.active { display: block; }
+  .motivational {
+    background: var(--green);
+    color: white;
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+  .motivational::after {
+    content: '';
+    position: absolute;
+    right: -20px;
+    top: -20px;
+    width: 100px;
+    height: 100px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 50%;
+  }
+  .motivational .label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+  .motivational .message { font-family: 'Lora', serif; font-size: 17px; font-weight: 500; line-height: 1.4; }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+  }
+  .card-title {
+    font-family: 'Lora', serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .icon {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+  .icon-green { background: var(--green-pale); }
+  .icon-amber { background: var(--amber-pale); }
+  .icon-red { background: var(--red-pale); }
+  .stat-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .stat-box {
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+  }
+  .stat-box .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .stat-box .stat-val { font-size: 22px; font-weight: 500; color: var(--text); }
+  .stat-box .stat-unit { font-size: 12px; color: var(--muted); }
+  .stat-box .stat-change { font-size: 11px; margin-top: 2px; }
+  .stat-box .stat-change.good { color: var(--green-light); }
+  .stat-box .stat-change.bad { color: var(--red); }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 5px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  input[type="number"], input[type="text"], input[type="time"], select {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    background: var(--bg);
+    color: var(--text);
+    margin-bottom: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--green); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--green);
+    color: white;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:hover { background: #134d8a; }
+  .btn-secondary {
+    background: transparent;
+    color: var(--green);
+    border: 1px solid var(--green);
+  }
+  .btn-secondary:hover { background: var(--green-pale); }
+  .glucose-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .glucose-normal { background: var(--green-pale); color: var(--green); }
+  .glucose-pre { background: var(--amber-pale); color: var(--amber); }
+  .glucose-high { background: var(--red-pale); color: var(--red); }
+  .log-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-date { font-size: 12px; color: var(--muted); }
+  .log-val { font-size: 15px; font-weight: 500; }
+  .section-title {
+    font-family: 'Lora', serif;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    padding-top: 4px;
+  }
+  .goal-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .goal-circle {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: 3px solid var(--green-pale);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 500; color: var(--green);
+    flex-shrink: 0;
+    position: relative;
+  }
+  .goal-info { flex: 1; }
+  .goal-info .goal-name { font-size: 14px; font-weight: 500; }
+  .goal-info .goal-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .progress-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--green-light);
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+  .steps-display {
+    text-align: center;
+    padding: 20px 0 10px;
+  }
+  .steps-big {
+    font-size: 52px;
+    font-weight: 300;
+    color: var(--text);
+    line-height: 1;
+  }
+  .steps-label { font-size: 14px; color: var(--muted); margin-top: 6px; }
+  .reminder-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .reminder-row:last-child { border-bottom: none; }
+  .reminder-info .name { font-size: 14px; font-weight: 500; }
+  .reminder-info .time { font-size: 12px; color: var(--muted); }
+  .toggle {
+    width: 40px; height: 22px;
+    background: var(--border);
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: none;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--green); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    background: white;
+    border-radius: 50%;
+    top: 2px; left: 2px;
+    transition: transform 0.2s;
+  }
+  .toggle.on::after { transform: translateX(18px); }
+  .chart-wrap { position: relative; height: 200px; margin: 8px 0; }
+  .tab-row {
+    display: flex;
+    background: var(--bg);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    gap: 2px;
+    margin-bottom: 14px;
+  }
+  .tab {
+    flex: 1;
+    border: none;
+    background: none;
+    padding: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 8px;
+    color: var(--muted);
+    transition: all 0.15s;
+  }
+  .tab.active { background: var(--card); color: var(--text); font-weight: 500; }
+  .empty-state {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .empty-state .empty-icon { font-size: 36px; margin-bottom: 10px; }
+  .saved-toast {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--green);
+    color: white;
+    padding: 10px 24px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 500;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 200;
+    white-space: nowrap;
+  }
+  .saved-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .medal { font-size: 28px; }
+  .milestone-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .milestone-row:last-child { border-bottom: none; }
+  .milestone-row .ms-text { flex: 1; }
+  .milestone-row .ms-name { font-size: 14px; font-weight: 500; }
+  .milestone-row .ms-sub { font-size: 12px; color: var(--muted); }
+  .achieved { opacity: 1; }
+  .not-achieved { opacity: 0.45; }
+  .bmi-gauge {
+    display: flex;
+    gap: 2px;
+    margin: 8px 0;
+  }
+  .bmi-seg {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+  }
+  .bmi-ptr { font-size: 11px; color: var(--muted); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- PIN Lock Screen -->
+<div id="pinScreen" style="position:fixed;inset:0;background:#f4f7fb;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;max-width:480px;margin:0 auto;">
+  <div style="width:64px;height:64px;background:#1a5fa8;border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+  </div>
+  <h2 id="pinTitle" style="font-family:'Lora',serif;font-size:22px;font-weight:600;color:#1a1a1a;margin-bottom:6px;text-align:center;">Welcome, Kumar</h2>
+  <p id="pinSubtitle" style="font-size:14px;color:#6b6b6b;margin-bottom:32px;text-align:center;line-height:1.5;">Enter your PIN to access your health tracker</p>
+
+  <!-- PIN dots -->
+  <div style="display:flex;gap:14px;margin-bottom:32px;" id="pinDots">
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+    <div class="pin-dot"></div>
+  </div>
+
+  <!-- PIN error -->
+  <p id="pinError" style="font-size:13px;color:#c0392b;margin-bottom:16px;min-height:18px;text-align:center;"></p>
+
+  <!-- Numpad -->
+  <div style="display:grid;grid-template-columns:repeat(3,72px);gap:12px;">
+    <button class="pin-key" onclick="pinPress('1')">1</button>
+    <button class="pin-key" onclick="pinPress('2')">2</button>
+    <button class="pin-key" onclick="pinPress('3')">3</button>
+    <button class="pin-key" onclick="pinPress('4')">4</button>
+    <button class="pin-key" onclick="pinPress('5')">5</button>
+    <button class="pin-key" onclick="pinPress('6')">6</button>
+    <button class="pin-key" onclick="pinPress('7')">7</button>
+    <button class="pin-key" onclick="pinPress('8')">8</button>
+    <button class="pin-key" onclick="pinPress('9')">9</button>
+    <div></div>
+    <button class="pin-key" onclick="pinPress('0')">0</button>
+    <button class="pin-key pin-del" onclick="pinDel()">⌫</button>
+  </div>
+
+  <p style="font-size:11px;color:#a0b0c8;margin-top:28px;text-align:center;">🔒 Your data is encrypted and stored only on this device</p>
+</div>
+
+<style>
+  .pin-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid #d6e4f0;
+    background: transparent;
+    transition: all 0.15s;
+  }
+  .pin-dot.filled { background: #1a5fa8; border-color: #1a5fa8; }
+  .pin-dot.error { background: #c0392b; border-color: #c0392b; }
+  .pin-key {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 1px solid #d6e4f0;
+    background: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    color: #1a1a1a;
+    cursor: pointer;
+    transition: background 0.1s, transform 0.1s;
+  }
+  .pin-key:active { background: #dbeeff; transform: scale(0.94); }
+  .pin-del { font-size: 18px; color: #6b6b6b; }
+</style>
+
+<div id="appContent" style="display:none;">
+
+  <div class="header-top">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div id="avatarWrap" onclick="document.getElementById('avatarInput').click()" style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.5);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;flex-shrink:0;position:relative;">
+        <img id="avatarImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:none;">
+        <span id="avatarPlaceholder" style="font-size:11px;opacity:0.85;text-align:center;line-height:1.2;color:white;padding:2px;">Add<br>photo</span>
+      </div>
+      <input type="file" id="avatarInput" accept="image/*" style="display:none" onchange="handleAvatar(this)">
+      <div>
+        <h1>Kumar's Health</h1>
+        <div class="date" id="headerDate"></div>
+      </div>
+    </div>
+    <div class="streak-badge" id="streakBadge">🔥 0 days</div>
+  </div>
+</div>
+
+<div id="page-home" class="page active">
+  <div style="height:16px"></div>
+  <div class="motivational" id="motivCard">
+    <div class="label">Good morning, Kumar 🌿</div>
+    <div class="message" id="motivMessage">Every small step counts. You're doing brilliantly.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-green">⚖️</div> This Morning</div>
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-label">Weight</div>
+        <div class="stat-val" id="todayWeight">—</div>
+        <div class="stat-unit">kg</div>
+        <div class="stat-change" id="weightChange"></div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">BMI</div>
+        <div class="stat-val" id="todayBMI">—</div>
+        <div class="stat-unit">bmi</div>
+      </div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box">
+        <div class="stat-label">Blood Sugar</div>
+        <div class="stat-val" id="todayGlucose">—</div>
+        <div class="stat-unit">mg/dL</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Steps Today</div>
+        <div class="stat-val" id="todaySteps">—</div>
+        <div class="stat-unit">steps</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-amber">🏅</div> Progress This Week</div>
+    <div id="weekProgress">
+      <div class="empty-state"><div class="empty-icon">📊</div>Log a few days to see your progress</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-red">💊</div> Medicine Reminders</div>
+    <div id="homeReminders"></div>
+  </div>
+
+</div><!-- end page-home -->
+
+<div id="page-log" class="page">
+  <div style="height:16px"></div>
+  <div class="section-title">Log Today</div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-green">⚖️</div> Morning Weight & Body</div>
+    <label>Weight (kg)</label>
+    <input type="number" id="inputWeight" placeholder="e.g. 84.5" step="0.1" min="30" max="250">
+    <label>Height (cm) — for BMI</label>
+    <input type="number" id="inputHeight" placeholder="e.g. 175" step="1" min="100" max="250">
+    <div class="field-row">
+      <div>
+        <label>Waist (cm)</label>
+        <input type="number" id="inputWaist" placeholder="e.g. 92" step="0.5">
+      </div>
+      <div>
+        <label>Hips (cm)</label>
+        <input type="number" id="inputHips" placeholder="e.g. 100" step="0.5">
+      </div>
+    </div>
+    <div class="field-row">
+      <div>
+        <label>Chest (cm)</label>
+        <input type="number" id="inputChest" placeholder="e.g. 102" step="0.5">
+      </div>
+      <div>
+        <label>Arms (cm)</label>
+        <input type="number" id="inputArms" placeholder="e.g. 35" step="0.5">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-red">🩸</div> Blood Sugar</div>
+    <div class="tab-row">
+      <button class="tab active" onclick="selectGlucoseType(this,'fasting')">Fasting</button>
+      <button class="tab" onclick="selectGlucoseType(this,'post-meal')">Post-meal</button>
+      <button class="tab" onclick="selectGlucoseType(this,'before-bed')">Before bed</button>
+    </div>
+    <label>Glucose reading (mg/dL)</label>
+    <input type="number" id="inputGlucose" placeholder="e.g. 120" step="1" min="40" max="500">
+    <div id="glucoseStatus" style="margin-bottom:12px; min-height:24px;"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-green">👟</div> Steps (end of day)</div>
+    <div class="steps-display">
+      <div class="steps-big" id="stepsDisplay">0</div>
+      <div class="steps-label">steps today</div>
+    </div>
+    <input type="range" id="inputSteps" min="0" max="20000" step="100" value="0" style="width:100%;margin-bottom:12px;" oninput="document.getElementById('stepsDisplay').textContent=parseInt(this.value).toLocaleString()">
+    <div class="field-row">
+      <div><button class="btn btn-secondary" onclick="document.getElementById('inputSteps').value=5000;document.getElementById('stepsDisplay').textContent='5,000'">5,000</button></div>
+      <div><button class="btn btn-secondary" onclick="document.getElementById('inputSteps').value=8000;document.getElementById('stepsDisplay').textContent='8,000'">8,000</button></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-amber">📝</div> Notes</div>
+    <label>How are you feeling today?</label>
+    <input type="text" id="inputNotes" placeholder="e.g. Feeling good, less tired...">
+  </div>
+
+  <button class="btn" onclick="saveLog()">Save Today's Log ✓</button>
+  <div style="height:8px"></div>
+</div>
+
+<div id="page-charts" class="page">
+  <div style="height:16px"></div>
+  <div class="section-title">Your Progress</div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-green">⚖️</div> Weight Over Time</div>
+    <div class="chart-wrap"><canvas id="weightChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-red">🩸</div> Blood Sugar</div>
+    <div class="tab-row">
+      <button class="tab active" onclick="filterGlucoseChart(this,'all')">All</button>
+      <button class="tab" onclick="filterGlucoseChart(this,'fasting')">Fasting</button>
+      <button class="tab" onclick="filterGlucoseChart(this,'post-meal')">Post-meal</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <span class="glucose-badge glucose-normal">Normal &lt;100</span>
+      <span class="glucose-badge glucose-pre">Pre-diabetic 100–125</span>
+      <span class="glucose-badge glucose-high">High ≥126</span>
+    </div>
+    <div class="chart-wrap"><canvas id="glucoseChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-green">👟</div> Daily Steps</div>
+    <div class="chart-wrap"><canvas id="stepsChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-amber">📏</div> Measurements Log</div>
+    <div id="measurementsLog"><div class="empty-state"><div class="empty-icon">📏</div>Log your measurements to see them here</div></div>
+  </div>
+</div>
+
+<div id="page-goals" class="page">
+  <div style="height:16px"></div>
+  <div class="section-title">Goals & Milestones</div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-green">🎯</div> Set Your Targets</div>
+    <label>Target Weight (kg)</label>
+    <input type="number" id="goalWeight" placeholder="e.g. 75" step="0.5">
+    <label>Daily Steps Goal</label>
+    <input type="number" id="goalSteps" placeholder="e.g. 8000" step="500">
+    <label>Starting Weight (kg)</label>
+    <input type="number" id="startWeight" placeholder="e.g. 95" step="0.5">
+    <button class="btn" onclick="saveGoals()">Save Goals</button>
+  </div>
+
+  <div class="card" id="goalsDisplay" style="display:none">
+    <div class="card-title"><div class="icon icon-green">📈</div> Weight Journey</div>
+    <div id="goalProgressArea"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-amber">🏆</div> Milestones</div>
+    <div id="milestonesArea"></div>
+  </div>
+</div>
+
+<div id="page-reminders" class="page">
+  <div style="height:16px"></div>
+  <div class="section-title">Medicine Reminders</div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-red">💊</div> Add Medicine</div>
+    <label>Medicine Name</label>
+    <input type="text" id="medName" placeholder="e.g. Metformin">
+    <label>Time</label>
+    <input type="time" id="medTime">
+    <label>Notes (optional)</label>
+    <input type="text" id="medNote" placeholder="e.g. With food, after meals">
+    <button class="btn" onclick="addReminder()">Add Reminder</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><div class="icon icon-amber">⏰</div> Your Reminders</div>
+    <div id="remindersList"><div class="empty-state"><div class="empty-icon">💊</div>No reminders yet — add your first medicine above</div></div>
+  </div>
+
+  <div class="card" style="background:var(--green-pale);border-color:var(--green-light);">
+    <div class="card-title" style="color:var(--green)">📱 Enable Browser Notifications</div>
+    <p style="font-size:13px;color:var(--green);margin-bottom:12px;">Get a reminder ping at the right time each day for your medicines.</p>
+    <button class="btn" onclick="requestNotifications()">Enable Notifications</button>
+  </div>
+
+</div>
+
+<nav class="nav">
+  <button class="nav-btn active" onclick="showPage('home',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Home
+  </button>
+  <button class="nav-btn" onclick="showPage('log',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Log
+  </button>
+  <button class="nav-btn" onclick="showPage('charts',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Progress
+  </button>
+  <button class="nav-btn" onclick="showPage('goals',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+    Goals
+  </button>
+  <button class="nav-btn" onclick="showPage('reminders',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+    Meds
+  </button>
+</nav>
+
+<!-- Simple footer -->
+</div><!-- end appContent -->
+
+<div style="max-width:480px;margin:0 auto;padding:16px 16px 100px;text-align:center;">
+  <p style="font-size:12px;color:#a0b0c8;font-family:'Lora',serif;font-style:italic;">Made with love by Deepika 💙</p>
+</div>
+
+<div class="saved-toast" id="toast">✓ Saved!</div>
+
+<script>
+// ── Crypto helpers (AES-GCM 256) ──────────────────────────────────────────
+const SALT_KEY = 'kumar_salt';
+const DATA_KEY = 'kumar_enc_data_v1';
+const PIN_HASH_KEY = 'kumar_pin_hash';
+
+async function deriveKey(pin, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: 200000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptData(pin, data) {
+  let saltB64 = localStorage.getItem(SALT_KEY);
+  let salt;
+  if (!saltB64) {
+    salt = crypto.getRandomValues(new Uint8Array(16));
+    localStorage.setItem(SALT_KEY, btoa(String.fromCharCode(...salt)));
+  } else {
+    salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
+  }
+  const key = await deriveKey(pin, salt);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(JSON.stringify(data));
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
+  combined.set(iv); combined.set(new Uint8Array(ciphertext), iv.byteLength);
+  localStorage.setItem(DATA_KEY, btoa(String.fromCharCode(...combined)));
+}
+
+async function decryptData(pin) {
+  const saltB64 = localStorage.getItem(SALT_KEY);
+  const dataB64 = localStorage.getItem(DATA_KEY);
+  if (!saltB64 || !dataB64) return null;
+  try {
+    const salt = Uint8Array.from(atob(saltB64), c => c.charCodeAt(0));
+    const combined = Uint8Array.from(atob(dataB64), c => c.charCodeAt(0));
+    const iv = combined.slice(0, 12);
+    const ciphertext = combined.slice(12);
+    const key = await deriveKey(pin, salt);
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return JSON.parse(new TextDecoder().decode(decrypted));
+  } catch { return null; }
+}
+
+async function hashPin(pin) {
+  const encoded = new TextEncoder().encode(pin + 'kumar_salt_v1');
+  const hashBuf = await crypto.subtle.digest('SHA-256', encoded);
+  return btoa(String.fromCharCode(...new Uint8Array(hashBuf)));
+}
+
+// ── PIN UI ────────────────────────────────────────────────────────────────
+let currentPin = '';
+let pinMode = 'unlock'; // 'setup' | 'confirm' | 'unlock'
+let setupPin = '';
+let activePin = '';
+
+function updateDots(pin, error = false) {
+  document.querySelectorAll('.pin-dot').forEach((d, i) => {
+    d.classList.toggle('filled', i < pin.length && !error);
+    d.classList.toggle('error', i < pin.length && error);
+  });
+}
+
+async function pinPress(digit) {
+  if (currentPin.length >= 4) return;
+  currentPin += digit;
+  updateDots(currentPin);
+  if (currentPin.length === 4) {
+    await handlePinComplete(currentPin);
+  }
+}
+
+function pinDel() {
+  if (currentPin.length === 0) return;
+  currentPin = currentPin.slice(0, -1);
+  updateDots(currentPin);
+  document.getElementById('pinError').textContent = '';
+}
+
+async function handlePinComplete(pin) {
+  if (pinMode === 'setup') {
+    setupPin = pin;
+    pinMode = 'confirm';
+    currentPin = '';
+    updateDots('');
+    document.getElementById('pinTitle').textContent = 'Confirm your PIN';
+    document.getElementById('pinSubtitle').textContent = 'Enter the same PIN again to confirm';
+    document.getElementById('pinError').textContent = '';
+  } else if (pinMode === 'confirm') {
+    if (pin !== setupPin) {
+      document.getElementById('pinError').textContent = "PINs don't match — try again";
+      updateDots(pin, true);
+      setTimeout(() => { currentPin = ''; updateDots(''); document.getElementById('pinError').textContent = ''; }, 900);
+      pinMode = 'setup';
+      setupPin = '';
+      setTimeout(() => {
+        document.getElementById('pinTitle').textContent = 'Create your PIN';
+        document.getElementById('pinSubtitle').textContent = 'Choose a 4-digit PIN to protect your health data';
+      }, 900);
+    } else {
+      const h = await hashPin(pin);
+      localStorage.setItem(PIN_HASH_KEY, h);
+      activePin = pin;
+      await encryptData(pin, state);
+      unlockApp();
+    }
+  } else {
+    const h = await hashPin(pin);
+    const stored = localStorage.getItem(PIN_HASH_KEY);
+    if (h !== stored) {
+      document.getElementById('pinError').textContent = 'Incorrect PIN — try again';
+      updateDots(pin, true);
+      setTimeout(() => { currentPin = ''; updateDots(''); document.getElementById('pinError').textContent = ''; }, 900);
+    } else {
+      const data = await decryptData(pin);
+      if (data) {
+        state = data;
+        if (!state.logs) state.logs = [];
+        if (!state.reminders) state.reminders = [];
+        if (!state.goals) state.goals = {};
+      }
+      activePin = pin;
+      unlockApp();
+    }
+  }
+}
+
+function unlockApp() {
+  document.getElementById('pinScreen').style.display = 'none';
+  document.getElementById('appContent').style.display = 'block';
+  init();
+}
+
+// ── App state ─────────────────────────────────────────────────────────────
+const DB_KEY = 'dads_health_v2';
+let state = { logs: [], reminders: [], goals: {} };
+let glucoseType = 'fasting';
+let glucoseFilter = 'all';
+let weightChartInst, glucoseChartInst, stepsChartInst;
+
+// ── Boot: show PIN screen ─────────────────────────────────────────────────
+(async function boot() {
+  const pinSet = localStorage.getItem(PIN_HASH_KEY);
+  if (!pinSet) {
+    pinMode = 'setup';
+    document.getElementById('pinTitle').textContent = 'Create your PIN';
+    document.getElementById('pinSubtitle').textContent = 'Choose a 4-digit PIN to protect your health data';
+  } else {
+    pinMode = 'unlock';
+  }
+  document.getElementById('pinScreen').style.display = 'flex';
+})();
+
+const messages = [
+  "Every small step counts, Kumar. You're doing brilliantly.",
+  "Consistency beats perfection every single day, Appa.",
+  "You're not just losing weight — you're gaining health.",
+  "Your future self is proud of what you're doing today.",
+  "Small progress is still progress. Keep going, Kumar!",
+  "One day at a time. You've got this, Appa.",
+  "The best investment you can make is in your health.",
+  "We are so proud of you for showing up today, Appa.",
+  "Strength isn't just in the gym — it's in every good choice you make.",
+  "Your journey, your pace. You're doing amazing, Kumar."
+];
+
+function init() {
+  document.getElementById('headerDate').textContent = new Date().toLocaleDateString('en-IE', {weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('motivMessage').textContent = messages[new Date().getDay() % messages.length];
+  updateStreak();
+  updateHomeStats();
+  updateHomeReminders();
+  loadGoalInputs();
+  renderGoals();
+  renderReminders();
+  updateMilestones();
+  loadAvatar();
+}
+
+function handleAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const data = e.target.result;
+    localStorage.setItem('kumar_avatar', data);
+    setAvatar(data);
+    showToast('✓ Photo saved!');
+  };
+  reader.readAsDataURL(file);
+}
+
+function loadAvatar() {
+  const data = localStorage.getItem('kumar_avatar');
+  if (data) setAvatar(data);
+}
+
+function setAvatar(data) {
+  const img = document.getElementById('avatarImg');
+  const placeholder = document.getElementById('avatarPlaceholder');
+  img.src = data;
+  img.style.display = 'block';
+  placeholder.style.display = 'none';
+}
+
+function save() { encryptData(activePin, state); }
+
+function todayKey() { return new Date().toISOString().slice(0,10); }
+
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'charts') renderCharts();
+  if (id === 'goals') { renderGoals(); updateMilestones(); }
+}
+
+function selectGlucoseType(btn, type) {
+  glucoseType = type;
+  document.querySelectorAll('#page-log .tab-row .tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+function filterGlucoseChart(btn, type) {
+  glucoseFilter = type;
+  document.querySelectorAll('#page-charts .tab-row .tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGlucoseChart();
+}
+
+function glucoseStatus(val) {
+  if (!val) return '';
+  if (val < 100) return '<span class="glucose-badge glucose-normal">Normal range ✓</span>';
+  if (val < 126) return '<span class="glucose-badge glucose-pre">Pre-diabetic range</span>';
+  return '<span class="glucose-badge glucose-high">High — monitor closely</span>';
+}
+
+document.getElementById('inputGlucose').addEventListener('input', function() {
+  document.getElementById('glucoseStatus').innerHTML = glucoseStatus(parseFloat(this.value));
+});
+
+function saveLog() {
+  const weight = parseFloat(document.getElementById('inputWeight').value);
+  const height = parseFloat(document.getElementById('inputHeight').value) || state.lastHeight;
+  const glucose = parseFloat(document.getElementById('inputGlucose').value);
+  const steps = parseInt(document.getElementById('inputSteps').value) || 0;
+  const waist = parseFloat(document.getElementById('inputWaist').value);
+  const hips = parseFloat(document.getElementById('inputHips').value);
+  const chest = parseFloat(document.getElementById('inputChest').value);
+  const arms = parseFloat(document.getElementById('inputArms').value);
+  const notes = document.getElementById('inputNotes').value;
+
+  if (!weight && !glucose) { showToast('Please enter at least your weight or blood sugar'); return; }
+
+  if (height) state.lastHeight = height;
+  const bmi = (weight && height) ? parseFloat((weight / ((height/100) ** 2)).toFixed(1)) : null;
+
+  const key = todayKey();
+  const existing = state.logs.findIndex(l => l.date === key);
+  const entry = { date: key, weight, height: height || state.lastHeight, bmi, glucose, glucoseType, steps, waist, hips, chest, arms, notes };
+  if (existing >= 0) state.logs[existing] = entry;
+  else state.logs.push(entry);
+  state.logs.sort((a,b) => a.date.localeCompare(b.date));
+  save();
+  updateHomeStats();
+  updateStreak();
+  updateMilestones();
+  showToast('✓ Logged successfully!');
+}
+
+function updateHomeStats() {
+  const sorted = [...state.logs].sort((a,b) => b.date.localeCompare(a.date));
+  const today = sorted[0];
+  const prev = sorted[1];
+  if (today) {
+    document.getElementById('todayWeight').textContent = today.weight || '—';
+    document.getElementById('todayBMI').textContent = today.bmi || '—';
+    document.getElementById('todayGlucose').textContent = today.glucose || '—';
+    document.getElementById('todaySteps').textContent = today.steps ? today.steps.toLocaleString() : '—';
+    if (today.weight && prev && prev.weight) {
+      const diff = (today.weight - prev.weight).toFixed(1);
+      const el = document.getElementById('weightChange');
+      el.textContent = diff > 0 ? '+' + diff + ' kg' : diff + ' kg';
+      el.className = 'stat-change ' + (diff <= 0 ? 'good' : 'bad');
+    }
+  }
+
+  const last7 = sorted.slice(0,7).reverse();
+  const wpEl = document.getElementById('weekProgress');
+  if (last7.length < 2) { wpEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div>Log a few more days to see your weekly progress</div>'; return; }
+  const avgGlucose = (last7.filter(l=>l.glucose).reduce((a,l)=>a+l.glucose,0) / last7.filter(l=>l.glucose).length).toFixed(0);
+  const avgSteps = (last7.filter(l=>l.steps).reduce((a,l)=>a+l.steps,0) / last7.filter(l=>l.steps).length).toFixed(0);
+  const wStart = last7.find(l=>l.weight);
+  const wEnd = [...last7].reverse().find(l=>l.weight);
+  const wDiff = (wStart && wEnd && wStart !== wEnd) ? (wEnd.weight - wStart.weight).toFixed(1) : null;
+  wpEl.innerHTML = `<div class="stat-row">
+    ${wDiff !== null ? `<div class="stat-box"><div class="stat-label">Weight change</div><div class="stat-val ${wDiff<=0?'':'bad'}" style="color:${wDiff<=0?'var(--green)':'var(--red)'}">${wDiff>0?'+':''}${wDiff}</div><div class="stat-unit">kg this week</div></div>` : ''}
+    ${avgGlucose ? `<div class="stat-box"><div class="stat-label">Avg glucose</div><div class="stat-val">${avgGlucose}</div><div class="stat-unit">mg/dL avg</div></div>` : ''}
+    ${avgSteps ? `<div class="stat-box"><div class="stat-label">Avg steps</div><div class="stat-val">${parseInt(avgSteps).toLocaleString()}</div><div class="stat-unit">per day</div></div>` : ''}
+  </div>`;
+}
+
+function updateStreak() {
+  const dates = state.logs.map(l => l.date).sort();
+  let streak = 0;
+  const today = todayKey();
+  let check = today;
+  for (let i = 0; i < 365; i++) {
+    if (dates.includes(check)) { streak++; check = offsetDate(check, -1); }
+    else break;
+  }
+  state.streak = streak;
+  document.getElementById('streakBadge').textContent = '🔥 ' + streak + (streak === 1 ? ' day' : ' days');
+}
+
+function offsetDate(d, n) {
+  const dt = new Date(d);
+  dt.setDate(dt.getDate() + n);
+  return dt.toISOString().slice(0,10);
+}
+
+function updateHomeReminders() {
+  const el = document.getElementById('homeReminders');
+  if (!state.reminders.length) { el.innerHTML = '<div class="empty-state" style="padding:10px 0"><div class="empty-icon">💊</div>Add medicines in the Meds tab</div>'; return; }
+  const sorted = [...state.reminders].sort((a,b) => a.time.localeCompare(b.time));
+  el.innerHTML = sorted.map(r => `<div class="reminder-row"><div class="reminder-info"><div class="name">${r.name}</div><div class="time">${formatTime(r.time)}${r.note ? ' · ' + r.note : ''}</div></div><div style="font-size:22px">💊</div></div>`).join('');
+}
+
+function formatTime(t) {
+  const [h, m] = t.split(':').map(Number);
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  return `${h % 12 || 12}:${m.toString().padStart(2,'0')} ${ampm}`;
+}
+
+function addReminder() {
+  const name = document.getElementById('medName').value.trim();
+  const time = document.getElementById('medTime').value;
+  const note = document.getElementById('medNote').value.trim();
+  if (!name || !time) { showToast('Please enter medicine name and time'); return; }
+  state.reminders.push({ id: Date.now(), name, time, note, on: true });
+  save();
+  document.getElementById('medName').value = '';
+  document.getElementById('medTime').value = '';
+  document.getElementById('medNote').value = '';
+  renderReminders();
+  updateHomeReminders();
+  showToast('✓ Reminder added!');
+}
+
+function renderReminders() {
+  const el = document.getElementById('remindersList');
+  if (!state.reminders.length) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">💊</div>No reminders yet</div>'; return; }
+  const sorted = [...state.reminders].sort((a,b) => a.time.localeCompare(b.time));
+  el.innerHTML = sorted.map(r => `<div class="reminder-row">
+    <div class="reminder-info"><div class="name">${r.name}</div><div class="time">${formatTime(r.time)}${r.note ? ' · ' + r.note : ''}</div></div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="toggle ${r.on ? 'on' : ''}" onclick="toggleReminder(${r.id})"></button>
+      <button onclick="deleteReminder(${r.id})" style="border:none;background:none;cursor:pointer;color:var(--muted);font-size:18px">×</button>
+    </div>
+  </div>`).join('');
+}
+
+function toggleReminder(id) {
+  const r = state.reminders.find(r => r.id === id);
+  if (r) { r.on = !r.on; save(); renderReminders(); }
+}
+
+function deleteReminder(id) {
+  state.reminders = state.reminders.filter(r => r.id !== id);
+  save();
+  renderReminders();
+  updateHomeReminders();
+}
+
+function requestNotifications() {
+  if (!('Notification' in window)) { showToast('Notifications not supported on this browser'); return; }
+  Notification.requestPermission().then(p => {
+    if (p === 'granted') {
+      showToast('✓ Notifications enabled!');
+      scheduleNotifications();
+    } else {
+      showToast('Please allow notifications in browser settings');
+    }
+  });
+}
+
+function scheduleNotifications() {
+  state.reminders.filter(r => r.on).forEach(r => {
+    const now = new Date();
+    const [h,m] = r.time.split(':').map(Number);
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
+    if (target > now) {
+      const delay = target - now;
+      setTimeout(() => new Notification('💊 Medicine Reminder', { body: `Time to take ${r.name}${r.note ? ' · ' + r.note : ''}`, icon: '' }), delay);
+    }
+  });
+}
+
+function saveGoals() {
+  const gw = parseFloat(document.getElementById('goalWeight').value);
+  const gs = parseInt(document.getElementById('goalSteps').value);
+  const sw = parseFloat(document.getElementById('startWeight').value);
+  if (!gw && !gs) { showToast('Please enter at least one goal'); return; }
+  state.goals = { targetWeight: gw, stepsGoal: gs, startWeight: sw };
+  save();
+  showToast('✓ Goals saved!');
+  renderGoals();
+  updateMilestones();
+}
+
+function loadGoalInputs() {
+  if (state.goals.targetWeight) document.getElementById('goalWeight').value = state.goals.targetWeight;
+  if (state.goals.stepsGoal) document.getElementById('goalSteps').value = state.goals.stepsGoal;
+  if (state.goals.startWeight) document.getElementById('startWeight').value = state.goals.startWeight;
+}
+
+function renderGoals() {
+  const g = state.goals;
+  const el = document.getElementById('goalsDisplay');
+  const pa = document.getElementById('goalProgressArea');
+  if (!g.targetWeight || !g.startWeight) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  const sorted = [...state.logs].filter(l => l.weight).sort((a,b) => b.date.localeCompare(a.date));
+  const current = sorted[0] ? sorted[0].weight : g.startWeight;
+  const totalToLose = g.startWeight - g.targetWeight;
+  const lost = g.startWeight - current;
+  const pct = Math.min(100, Math.max(0, totalToLose > 0 ? (lost / totalToLose * 100) : 0));
+  pa.innerHTML = `
+    <div class="goal-row">
+      <div class="goal-circle">${Math.round(pct)}%</div>
+      <div class="goal-info">
+        <div class="goal-name">${lost >= 0 ? (lost.toFixed(1) + ' kg lost') : 'Getting started'}</div>
+        <div class="goal-sub">${g.startWeight} kg → ${g.targetWeight} kg target · Current: ${current} kg</div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      </div>
+    </div>`;
+}
+
+function updateMilestones() {
+  const g = state.goals;
+  const sorted = [...state.logs].filter(l => l.weight).sort((a,b) => b.date.localeCompare(a.date));
+  const currentWeight = sorted[0] ? sorted[0].weight : null;
+  const lost = currentWeight && g.startWeight ? (g.startWeight - currentWeight) : 0;
+  const streak = state.streak || 0;
+  const milestones = [
+    { medal: '🥉', name: 'First log!', sub: 'Appa, you started your journey — we are so proud!', achieved: state.logs.length >= 1 },
+    { medal: '🌱', name: '7-day streak', sub: 'Appa, one whole week! You are incredible!', achieved: streak >= 7 },
+    { medal: '⭐', name: '1 kg lost', sub: 'Appa, you achieved it! The first kilo — always the hardest!', achieved: lost >= 1 },
+    { medal: '🏅', name: '5 kg lost', sub: 'Appa, you are a hero! 5 kilos down!', achieved: lost >= 5 },
+    { medal: '🔥', name: '30-day streak', sub: 'Appa, we are so proud of you — a whole month!', achieved: streak >= 30 },
+    { medal: '🏆', name: '10 kg lost', sub: 'Appa, you got this — 10 kilos! You are a champion!', achieved: lost >= 10 },
+    { medal: '💪', name: 'Goal reached!', sub: 'Appa, you achieved it! Your hard work paid off!', achieved: g.targetWeight && currentWeight && currentWeight <= g.targetWeight },
+  ];
+  const el = document.getElementById('milestonesArea');
+  el.innerHTML = milestones.map(m => `<div class="milestone-row ${m.achieved ? 'achieved' : 'not-achieved'}">
+    <div class="medal">${m.medal}</div>
+    <div class="ms-text"><div class="ms-name">${m.name}</div><div class="ms-sub">${m.sub}</div></div>
+    ${m.achieved ? '<span style="color:var(--green);font-size:18px">✓</span>' : '<span style="color:var(--muted);font-size:14px">—</span>'}
+  </div>`).join('');
+}
+
+function renderCharts() {
+  const logs = [...state.logs].sort((a,b) => a.date.localeCompare(b.date));
+  const labels = logs.map(l => new Date(l.date).toLocaleDateString('en-IE', {day:'numeric',month:'short'}));
+
+  const greenColor = '#1a5fa8';
+  const greenLight = '#4a9fd4';
+
+  if (weightChartInst) weightChartInst.destroy();
+  const wctx = document.getElementById('weightChart').getContext('2d');
+  weightChartInst = new Chart(wctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Weight (kg)',
+        data: logs.map(l => l.weight || null),
+        borderColor: greenColor,
+        backgroundColor: 'rgba(26,95,168,0.08)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: greenColor
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { grid: { color: '#e8f0f8' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  renderGlucoseChart(logs, labels);
+  if (stepsChartInst) stepsChartInst.destroy();
+  const sctx = document.getElementById('stepsChart').getContext('2d');
+  stepsChartInst = new Chart(sctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Steps',
+        data: logs.map(l => l.steps || 0),
+        backgroundColor: logs.map(l => {
+          const goal = state.goals.stepsGoal || 8000;
+          return (l.steps || 0) >= goal ? 'rgba(26,95,168,0.7)' : 'rgba(26,95,168,0.25)';
+        }),
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { grid: { color: '#e8f0f8' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  const ml = document.getElementById('measurementsLog');
+  const withMeasure = [...state.logs].filter(l => l.waist || l.hips || l.chest).sort((a,b) => b.date.localeCompare(a.date));
+  if (!withMeasure.length) { ml.innerHTML = '<div class="empty-state"><div class="empty-icon">📏</div>Log your measurements to see them here</div>'; return; }
+  ml.innerHTML = withMeasure.map(l => `<div class="log-entry">
+    <div><div class="log-date">${new Date(l.date).toLocaleDateString('en-IE',{day:'numeric',month:'short'})}</div>
+    <div class="log-val" style="font-size:13px;color:var(--muted)">${[l.waist?'W:'+l.waist:'',l.hips?'H:'+l.hips:'',l.chest?'C:'+l.chest:''].filter(Boolean).join(' · ')} cm</div></div>
+  </div>`).join('');
+}
+
+function renderGlucoseChart(logsArg, labelsArg) {
+  const logs = logsArg || [...state.logs].sort((a,b) => a.date.localeCompare(b.date));
+  const labels = labelsArg || logs.map(l => new Date(l.date).toLocaleDateString('en-IE',{day:'numeric',month:'short'}));
+  const filtered = glucoseFilter === 'all' ? logs : logs.filter(l => l.glucoseType === glucoseFilter);
+  const fLabels = filtered.map((l,i) => {
+    const idx = logs.indexOf(l);
+    return labels[idx] || '';
+  });
+  if (glucoseChartInst) glucoseChartInst.destroy();
+  const gctx = document.getElementById('glucoseChart').getContext('2d');
+  glucoseChartInst = new Chart(gctx, {
+    type: 'line',
+    data: {
+      labels: fLabels,
+      datasets: [
+        {
+          label: 'Glucose (mg/dL)',
+          data: filtered.map(l => l.glucose || null),
+          borderColor: '#c0392b',
+          backgroundColor: 'rgba(192,57,43,0.07)',
+          fill: true, tension: 0.4, pointRadius: 4,
+          pointBackgroundColor: filtered.map(l => {
+            if (!l.glucose) return '#ccc';
+            if (l.glucose < 100) return '#1a5fa8';
+            if (l.glucose < 126) return '#e07a00';
+            return '#c0392b';
+          })
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        annotation: { annotations: { line100: { type: 'line', yMin: 100, yMax: 100, borderColor: 'rgba(224,122,0,0.4)', borderWidth: 1, borderDash: [4,4] } } }
+      },
+      scales: {
+        y: { grid: { color: '#e8f0f8' }, ticks: { font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+init();
+</script>
+</body>
+</html>
