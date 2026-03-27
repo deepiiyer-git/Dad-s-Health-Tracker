@@ -1,4 +1,4 @@
-const CACHE = 'kumar-health-v2';
+const CACHE = 'kumar-health-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -7,42 +7,70 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(clients.claim());
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
+    ).then(() => clients.claim())
+  );
 });
 
 self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html'))));
 });
 
-// Handle reminder scheduling from the app
-const scheduledTimers = [];
+const timers = {};
 
 self.addEventListener('message', e => {
-  if (e.data && e.data.type === 'SCHEDULE_REMINDERS') {
-    // Clear existing timers
-    scheduledTimers.forEach(t => clearTimeout(t));
-    scheduledTimers.length = 0;
+  if (!e.data) return;
 
+  if (e.data.type === 'NOTIFY_IN') {
+    const { delay, title, body, tag } = e.data;
+    if (timers[tag]) clearTimeout(timers[tag]);
+    timers[tag] = setTimeout(() => {
+      self.registration.showNotification(title, {
+        body,
+        icon: './icon-192.png',
+        badge: './icon-192.png',
+        vibrate: [300, 100, 300, 100, 300],
+        requireInteraction: true,
+        tag,
+        actions: [{ action: 'done', title: 'Taken ✓' }]
+      });
+    }, delay);
+  }
+
+  if (e.data.type === 'SCHEDULE_REMINDERS') {
     const reminders = e.data.reminders || [];
-    const now = new Date();
-
+    const now = Date.now();
     reminders.forEach(r => {
       const [h, m] = r.time.split(':').map(Number);
-      const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-      if (target > now) {
-        const delay = target - now;
-        const timer = setTimeout(() => {
-          self.registration.showNotification("💊 Kumar's Medicine Reminder", {
-            body: `Time to take ${r.name}${r.note ? ' · ' + r.note : ''}`,
-            icon: './icon-192.png',
-            badge: './icon-192.png',
-            vibrate: [200, 100, 200],
-            tag: 'med-' + r.name,
-            requireInteraction: true
-          });
-        }, delay);
-        scheduledTimers.push(timer);
-      }
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      if (d.getTime() <= now) d.setDate(d.getDate() + 1);
+      const delay = d.getTime() - now;
+      const tag = 'med-' + r.name;
+      if (timers[tag]) clearTimeout(timers[tag]);
+      timers[tag] = setTimeout(() => {
+        self.registration.showNotification("💊 Medicine Time — Kumar's Health", {
+          body: `Time to take ${r.name}${r.note ? ' · ' + r.note : ''}`,
+          icon: './icon-192.png',
+          badge: './icon-192.png',
+          vibrate: [300, 100, 300, 100, 300],
+          requireInteraction: true,
+          tag
+        });
+      }, delay);
     });
   }
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  if (e.action === 'done') return;
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      if (list.length > 0) return list[0].focus();
+      return clients.openWindow('./');
+    })
+  );
 });
