@@ -5,6 +5,7 @@
   "start_url": "/Dad-s-Health-Tracker/",
   "scope": "/Dad-s-Health-Tracker/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f4f7fb",
   "theme_color": "#1a5fa8",
   "icons": [
