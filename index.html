@@ -555,14 +555,12 @@
 
   <div class="card">
     <div class="card-title"><div class="icon icon-red">🩸</div> Blood Sugar</div>
-    <div class="tab-row">
-      <button class="tab active" onclick="selectGlucoseType(this,'fasting')">Fasting</button>
-      <button class="tab" onclick="selectGlucoseType(this,'post-meal')">Post-meal</button>
-      <button class="tab" onclick="selectGlucoseType(this,'before-bed')">Before bed</button>
-    </div>
-    <label>Glucose reading (mg/dL)</label>
-    <input type="number" id="inputGlucose" placeholder="e.g. 120" step="1" min="40" max="500">
-    <div id="glucoseStatus" style="margin-bottom:12px; min-height:24px;"></div>
+    <label>Fasting (mg/dL) — morning, before eating</label>
+    <input type="number" id="inputGlucoseFasting" placeholder="e.g. 110" step="1" min="40" max="500">
+    <div id="glucoseStatusFasting" style="margin-bottom:12px; min-height:24px;"></div>
+    <label>Post-meal (mg/dL) — after lunch</label>
+    <input type="number" id="inputGlucosePostmeal" placeholder="e.g. 145" step="1" min="40" max="500">
+    <div id="glucoseStatusPostmeal" style="margin-bottom:4px; min-height:24px;"></div>
   </div>
 
   <div class="card">
@@ -599,16 +597,12 @@
 
   <div class="card">
     <div class="card-title"><div class="icon icon-red">🩸</div> Blood Sugar</div>
-    <div class="tab-row">
-      <button class="tab active" onclick="filterGlucoseChart(this,'all')">All</button>
-      <button class="tab" onclick="filterGlucoseChart(this,'fasting')">Fasting</button>
-      <button class="tab" onclick="filterGlucoseChart(this,'post-meal')">Post-meal</button>
-    </div>
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-      <span class="glucose-badge glucose-normal">Normal &lt;100</span>
+      <span class="glucose-badge glucose-normal">Fasting normal &lt;100</span>
       <span class="glucose-badge glucose-pre">Pre-diabetic 100–125</span>
       <span class="glucose-badge glucose-high">High ≥126</span>
     </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">— — Post-meal normal &lt;140 mg/dL</div>
     <div class="chart-wrap"><canvas id="glucoseChart"></canvas></div>
   </div>
 
@@ -844,6 +838,8 @@ async function handlePinComplete(pin) {
 }
 
 function unlockApp() {
+  sessionStorage.setItem('kumar_unlocked', '1');
+  sessionStorage.setItem('kumar_pin_session', activePin);
   document.getElementById('pinScreen').style.display = 'none';
   document.getElementById('appContent').style.display = 'block';
   init();
@@ -852,21 +848,34 @@ function unlockApp() {
 // ── App state ─────────────────────────────────────────────────────────────
 const DB_KEY = 'dads_health_v2';
 let state = { logs: [], reminders: [], goals: {} };
-let glucoseType = 'fasting';
-let glucoseFilter = 'all';
 let weightChartInst, glucoseChartInst, stepsChartInst;
 
 // ── Boot: show PIN screen ─────────────────────────────────────────────────
 (async function boot() {
   const pinSet = localStorage.getItem(PIN_HASH_KEY);
+  const sessionUnlocked = sessionStorage.getItem('kumar_unlocked');
   if (!pinSet) {
     pinMode = 'setup';
     document.getElementById('pinTitle').textContent = 'Create your PIN';
     document.getElementById('pinSubtitle').textContent = 'Choose a 4-digit PIN to protect your health data';
+    document.getElementById('pinScreen').style.display = 'flex';
+  } else if (sessionUnlocked === '1') {
+    // Already unlocked this session — restore data and go straight in
+    const data = await decryptData(sessionStorage.getItem('kumar_pin_session'));
+    if (data) {
+      state = data;
+      if (!state.logs) state.logs = [];
+      if (!state.reminders) state.reminders = [];
+      if (!state.goals) state.goals = {};
+      activePin = sessionStorage.getItem('kumar_pin_session');
+    }
+    document.getElementById('pinScreen').style.display = 'none';
+    document.getElementById('appContent').style.display = 'block';
+    init();
   } else {
     pinMode = 'unlock';
+    document.getElementById('pinScreen').style.display = 'flex';
   }
-  document.getElementById('pinScreen').style.display = 'flex';
 })();
 
 const messages = [
@@ -923,7 +932,10 @@ function setAvatar(data) {
 
 function save() { encryptData(activePin, state); }
 
-function todayKey() { return new Date().toISOString().slice(0,10); }
+function todayKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 
 function showPage(id, btn) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -934,34 +946,31 @@ function showPage(id, btn) {
   if (id === 'goals') { renderGoals(); updateMilestones(); }
 }
 
-function selectGlucoseType(btn, type) {
-  glucoseType = type;
-  document.querySelectorAll('#page-log .tab-row .tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-}
-
-function filterGlucoseChart(btn, type) {
-  glucoseFilter = type;
-  document.querySelectorAll('#page-charts .tab-row .tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderGlucoseChart();
-}
-
-function glucoseStatus(val) {
-  if (!val) return '';
-  if (val < 100) return '<span class="glucose-badge glucose-normal">Normal range ✓</span>';
-  if (val < 126) return '<span class="glucose-badge glucose-pre">Pre-diabetic range</span>';
-  return '<span class="glucose-badge glucose-high">High — monitor closely</span>';
-}
-
-document.getElementById('inputGlucose').addEventListener('input', function() {
-  document.getElementById('glucoseStatus').innerHTML = glucoseStatus(parseFloat(this.value));
+document.getElementById('inputGlucoseFasting').addEventListener('input', function() {
+  document.getElementById('glucoseStatusFasting').innerHTML = glucoseStatus(parseFloat(this.value), 'fasting');
 });
+document.getElementById('inputGlucosePostmeal').addEventListener('input', function() {
+  document.getElementById('glucoseStatusPostmeal').innerHTML = glucoseStatus(parseFloat(this.value), 'postmeal');
+});
+
+function glucoseStatus(val, type) {
+  if (!val) return '';
+  if (type === 'fasting') {
+    if (val < 100) return '<span class="glucose-badge glucose-normal">Normal fasting ✓</span>';
+    if (val < 126) return '<span class="glucose-badge glucose-pre">Pre-diabetic range</span>';
+    return '<span class="glucose-badge glucose-high">High — monitor closely</span>';
+  } else {
+    if (val < 140) return '<span class="glucose-badge glucose-normal">Normal post-meal ✓</span>';
+    if (val < 200) return '<span class="glucose-badge glucose-pre">Elevated post-meal</span>';
+    return '<span class="glucose-badge glucose-high">High — monitor closely</span>';
+  }
+}
 
 function saveLog() {
   const weight = parseFloat(document.getElementById('inputWeight').value);
   const height = parseFloat(document.getElementById('inputHeight').value) || state.lastHeight;
-  const glucose = parseFloat(document.getElementById('inputGlucose').value);
+  const glucoseFasting = parseFloat(document.getElementById('inputGlucoseFasting').value);
+  const glucosePostmeal = parseFloat(document.getElementById('inputGlucosePostmeal').value);
   const steps = parseInt(document.getElementById('inputSteps').value) || 0;
   const waist = parseFloat(document.getElementById('inputWaist').value);
   const hips = parseFloat(document.getElementById('inputHips').value);
@@ -969,14 +978,14 @@ function saveLog() {
   const arms = parseFloat(document.getElementById('inputArms').value);
   const notes = document.getElementById('inputNotes').value;
 
-  if (!weight && !glucose) { showToast('Please enter at least your weight or blood sugar'); return; }
+  if (!weight && !glucoseFasting && !glucosePostmeal) { showToast('Please enter at least your weight or blood sugar'); return; }
 
   if (height) state.lastHeight = height;
   const bmi = (weight && height) ? parseFloat((weight / ((height/100) ** 2)).toFixed(1)) : null;
 
   const key = todayKey();
   const existing = state.logs.findIndex(l => l.date === key);
-  const entry = { date: key, weight, height: height || state.lastHeight, bmi, glucose, glucoseType, steps, waist, hips, chest, arms, notes };
+  const entry = { date: key, weight, height: height || state.lastHeight, bmi, glucoseFasting, glucosePostmeal, steps, waist, hips, chest, arms, notes };
   if (existing >= 0) state.logs[existing] = entry;
   else state.logs.push(entry);
   state.logs.sort((a,b) => a.date.localeCompare(b.date));
@@ -994,7 +1003,8 @@ function updateHomeStats() {
   if (today) {
     document.getElementById('todayWeight').textContent = today.weight || '—';
     document.getElementById('todayBMI').textContent = today.bmi || '—';
-    document.getElementById('todayGlucose').textContent = today.glucose || '—';
+    const glucoseDisplay = today.glucoseFasting ? today.glucoseFasting + (today.glucosePostmeal ? ' / ' + today.glucosePostmeal : '') : (today.glucosePostmeal || '—');
+    document.getElementById('todayGlucose').textContent = glucoseDisplay;
     document.getElementById('todaySteps').textContent = today.steps ? today.steps.toLocaleString() : '—';
     if (today.weight && prev && prev.weight) {
       const diff = (today.weight - prev.weight).toFixed(1);
@@ -1007,14 +1017,15 @@ function updateHomeStats() {
   const last7 = sorted.slice(0,7).reverse();
   const wpEl = document.getElementById('weekProgress');
   if (last7.length < 2) { wpEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div>Log a few more days to see your weekly progress</div>'; return; }
-  const avgGlucose = (last7.filter(l=>l.glucose).reduce((a,l)=>a+l.glucose,0) / last7.filter(l=>l.glucose).length).toFixed(0);
+  const fastingLogs = last7.filter(l=>l.glucoseFasting);
+  const avgFasting = fastingLogs.length ? (fastingLogs.reduce((a,l)=>a+l.glucoseFasting,0) / fastingLogs.length).toFixed(0) : null;
   const avgSteps = (last7.filter(l=>l.steps).reduce((a,l)=>a+l.steps,0) / last7.filter(l=>l.steps).length).toFixed(0);
   const wStart = last7.find(l=>l.weight);
   const wEnd = [...last7].reverse().find(l=>l.weight);
   const wDiff = (wStart && wEnd && wStart !== wEnd) ? (wEnd.weight - wStart.weight).toFixed(1) : null;
   wpEl.innerHTML = `<div class="stat-row">
     ${wDiff !== null ? `<div class="stat-box"><div class="stat-label">Weight change</div><div class="stat-val ${wDiff<=0?'':'bad'}" style="color:${wDiff<=0?'var(--green)':'var(--red)'}">${wDiff>0?'+':''}${wDiff}</div><div class="stat-unit">kg this week</div></div>` : ''}
-    ${avgGlucose ? `<div class="stat-box"><div class="stat-label">Avg glucose</div><div class="stat-val">${avgGlucose}</div><div class="stat-unit">mg/dL avg</div></div>` : ''}
+    ${avgFasting ? `<div class="stat-box"><div class="stat-label">Avg fasting glucose</div><div class="stat-val">${avgFasting}</div><div class="stat-unit">mg/dL avg</div></div>` : ''}
     ${avgSteps ? `<div class="stat-box"><div class="stat-label">Avg steps</div><div class="stat-val">${parseInt(avgSteps).toLocaleString()}</div><div class="stat-unit">per day</div></div>` : ''}
   </div>`;
 }
@@ -1092,14 +1103,19 @@ function deleteReminder(id) {
 }
 
 function requestNotifications() {
-  if (!('Notification' in window)) { showToast('Notifications not supported on this browser'); return; }
+  if (!('Notification' in window)) {
+    showToast('Set phone alarms for medicine reminders 💊');
+    return;
+  }
   Notification.requestPermission().then(p => {
     if (p === 'granted') {
       showToast('✓ Notifications enabled!');
       scheduleNotifications();
     } else {
-      showToast('Please allow notifications in browser settings');
+      showToast('Enable notifications in phone Settings → Apps → Kumar\'s Health');
     }
+  }).catch(() => {
+    showToast('Set phone alarms for medicine reminders 💊');
   });
 }
 
@@ -1180,7 +1196,10 @@ function updateMilestones() {
 
 function renderCharts() {
   const logs = [...state.logs].sort((a,b) => a.date.localeCompare(b.date));
-  const labels = logs.map(l => new Date(l.date).toLocaleDateString('en-IE', {day:'numeric',month:'short'}));
+  const labels = logs.map(l => {
+    const [y,m,d] = l.date.split('-');
+    return new Date(y, m-1, d).toLocaleDateString('en-IE', {day:'numeric',month:'short'});
+  });
 
   const greenColor = '#1a5fa8';
   const greenLight = '#4a9fd4';
@@ -1251,29 +1270,41 @@ function renderCharts() {
 
 function renderGlucoseChart(logsArg, labelsArg) {
   const logs = logsArg || [...state.logs].sort((a,b) => a.date.localeCompare(b.date));
-  const labels = labelsArg || logs.map(l => new Date(l.date).toLocaleDateString('en-IE',{day:'numeric',month:'short'}));
-  const filtered = glucoseFilter === 'all' ? logs : logs.filter(l => l.glucoseType === glucoseFilter);
-  const fLabels = filtered.map((l,i) => {
-    const idx = logs.indexOf(l);
-    return labels[idx] || '';
+  const labels = labelsArg || logs.map(l => {
+    const [y,m,d] = l.date.split('-');
+    return new Date(y, m-1, d).toLocaleDateString('en-IE', {day:'numeric',month:'short'});
   });
   if (glucoseChartInst) glucoseChartInst.destroy();
   const gctx = document.getElementById('glucoseChart').getContext('2d');
   glucoseChartInst = new Chart(gctx, {
     type: 'line',
     data: {
-      labels: fLabels,
+      labels,
       datasets: [
         {
-          label: 'Glucose (mg/dL)',
-          data: filtered.map(l => l.glucose || null),
+          label: 'Fasting',
+          data: logs.map(l => l.glucoseFasting || null),
           borderColor: '#c0392b',
           backgroundColor: 'rgba(192,57,43,0.07)',
           fill: true, tension: 0.4, pointRadius: 4,
-          pointBackgroundColor: filtered.map(l => {
-            if (!l.glucose) return '#ccc';
-            if (l.glucose < 100) return '#1a5fa8';
-            if (l.glucose < 126) return '#e07a00';
+          pointBackgroundColor: logs.map(l => {
+            if (!l.glucoseFasting) return '#ccc';
+            if (l.glucoseFasting < 100) return '#1a5fa8';
+            if (l.glucoseFasting < 126) return '#e07a00';
+            return '#c0392b';
+          })
+        },
+        {
+          label: 'Post-meal',
+          data: logs.map(l => l.glucosePostmeal || null),
+          borderColor: '#e07a00',
+          backgroundColor: 'rgba(224,122,0,0.05)',
+          fill: false, tension: 0.4, pointRadius: 4,
+          borderDash: [5,3],
+          pointBackgroundColor: logs.map(l => {
+            if (!l.glucosePostmeal) return '#ccc';
+            if (l.glucosePostmeal < 140) return '#1a5fa8';
+            if (l.glucosePostmeal < 200) return '#e07a00';
             return '#c0392b';
           })
         }
@@ -1281,10 +1312,7 @@ function renderGlucoseChart(logsArg, labelsArg) {
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        annotation: { annotations: { line100: { type: 'line', yMin: 100, yMax: 100, borderColor: 'rgba(224,122,0,0.4)', borderWidth: 1, borderDash: [4,4] } } }
-      },
+      plugins: { legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 16 } } },
       scales: {
         y: { grid: { color: '#e8f0f8' }, ticks: { font: { size: 11 } } },
         x: { grid: { display: false }, ticks: { font: { size: 11 } } }
