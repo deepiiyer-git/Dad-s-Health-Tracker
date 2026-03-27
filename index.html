@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="theme-color" content="#f4f7fb">
+<meta name="theme-color" content="#1a5fa8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Kumar's Health">
 <title>Kumar's Personal Health Tracker</title>
-<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Kumar's Health Tracker&quot;,&quot;short_name&quot;:&quot;Kumar&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;#f4f7fb&quot;,&quot;theme_color&quot;:&quot;#1a5fa8&quot;}">
+<link rel="manifest" href="manifest.json">
 <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');</script>
 <style>
   :root {
     --green: #1a5fa8;
